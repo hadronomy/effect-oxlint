@@ -45,6 +45,53 @@ describe('Plugin.define', () => {
 		expect(plugin.meta?.name).toBe('empty');
 		expect(R.keys(plugin.rules ?? {})).toHaveLength(0);
 	});
+
+	test('generates an all-rules recommended config', () => {
+		const plugin = Plugin.define({
+			name: 'my-effect-rules',
+			specifier: 'oxlint-plugin-my-effect-rules',
+			rules: {
+				'no-throw': dummyRule('no-throw'),
+				'prefer-fn': dummyRule('prefer-fn')
+			}
+		});
+
+		expect(plugin.configs.recommended.jsPlugins).toEqual([
+			{
+				name: 'my-effect-rules',
+				specifier: 'oxlint-plugin-my-effect-rules'
+			}
+		]);
+		expect(plugin.configs.recommended.rules).toEqual({
+			'my-effect-rules/no-throw': 'error',
+			'my-effect-rules/prefer-fn': 'error'
+		});
+	});
+
+	test('generates a curated recommended config', () => {
+		const plugin = Plugin.define({
+			name: 'my-effect-rules',
+			rules: {
+				'no-throw': dummyRule('no-throw'),
+				'prefer-fn': dummyRule('prefer-fn')
+			},
+			recommended: {
+				severity: 'warn',
+				rules: ['prefer-fn']
+			}
+		});
+
+		expect(plugin.configs.recommended.jsPlugins).toEqual([
+			'my-effect-rules'
+		]);
+		expect(plugin.configs.recommended.rules).toEqual({
+			'my-effect-rules/prefer-fn': 'warn'
+		});
+		expect(plugin.configs.all.rules).toEqual({
+			'my-effect-rules/no-throw': 'error',
+			'my-effect-rules/prefer-fn': 'error'
+		});
+	});
 });
 
 // ---------------------------------------------------------------------------

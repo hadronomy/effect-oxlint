@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `Plugin.define` now generates `configs.recommended` and `configs.all` objects for `oxlint.config.ts`; generated configs register the plugin through `jsPlugins` and enable fully-qualified rule IDs explicitly.
+- Optional `specifier` support on `Plugin.define` so generated configs can use a published package name while keeping the runtime `meta.name` rule namespace stable.
+- Type-checked curated recommendations: `recommended.rules` is now constrained to the keys of the supplied `rules` object.
+- `tsdown` build configuration that emits runnable ESM and declaration files under `dist/` for npm consumers.
+
+### Changed
+
+- npm exports now point at built `dist` files instead of raw `.ts` source, so oxlint can load published plugins from `node_modules` without Node type-stripping failures.
+- Updated dependency pins to Effect `4.0.0-beta.70`, Bun `1.3.14`, TypeScript `6.0.3`, `@effect/tsgo` `0.11.0`, and current supporting tool versions.
+
 ## [0.2.0] — Effect beta.57 + refined rule-factory API
 
 ### Added

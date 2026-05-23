@@ -21,11 +21,11 @@ Write [oxlint](https://oxc.rs/docs/guide/usage/linter) custom lint rules with [E
 ## Install
 
 ```sh
-npm install effect-oxlint effect@4.0.0-beta.57
+npm install effect-oxlint effect@4.0.0-beta.70
 ```
 
 ```sh
-bun add effect-oxlint effect@4.0.0-beta.57
+bun add effect-oxlint effect@4.0.0-beta.70
 ```
 
 ```sh
@@ -136,11 +136,42 @@ import { Plugin } from 'effect-oxlint';
 
 export default Plugin.define({
 	name: 'my-effect-rules',
+	specifier: 'oxlint-plugin-my-effect-rules',
 	rules: {
 		'no-json-parse': noJsonParse,
 		'no-math-random': noMathRandom,
 		'no-node-fs': noNodeFs,
 		'no-throw': noThrow
+	}
+});
+```
+
+`specifier` should match the npm package name users put in oxlint's `jsPlugins` array. When it is present, `Plugin.define` also creates `configs.recommended` and `configs.all` for `oxlint.config.ts` users:
+
+```ts
+import { defineConfig } from 'oxlint';
+import plugin from 'oxlint-plugin-my-effect-rules';
+
+export default defineConfig({
+	extends: [plugin.configs.recommended]
+});
+```
+
+The generated configs use oxlint's `jsPlugins` field plus explicit fully-qualified rule names. They do not rely on ESLint-only `docs.recommended` metadata or oxlint native `categories`.
+
+By default, every rule is recommended at `error` severity. To publish a curated recommended set, pass `recommended.rules`; TypeScript checks those names against the keys of `rules`, so typos fail during plugin development:
+
+```ts
+export default Plugin.define({
+	name: 'my-effect-rules',
+	specifier: 'oxlint-plugin-my-effect-rules',
+	rules: {
+		'no-json-parse': noJsonParse,
+		'no-math-random': noMathRandom
+	},
+	recommended: {
+		severity: 'warn',
+		rules: ['no-json-parse']
 	}
 });
 ```
@@ -377,14 +408,13 @@ bunx vitest run -t "reports for matching"
 
 ## Requirements
 
-`effect-oxlint` is distributed as **TypeScript source** (no compiled `dist/`). This keeps source maps, JSDoc, and type information perfectly aligned with the code you import — and it's how JSR prefers packages to ship.
+The npm package publishes built ESM JavaScript and declaration files under `dist/`, so Node-based tools such as oxlint can load plugins from `node_modules` without TypeScript source loading or type stripping. The JSR package continues to publish the TypeScript source entrypoints.
 
-Consumers must use a TypeScript-aware runtime or bundler:
+Supported consumers:
 
-- **Bun** — works out of the box.
-- **Deno** (via JSR) — works out of the box.
-- **Node.js with a bundler** (Vite, esbuild, webpack, Rollup, tsup, etc.) — works out of the box.
-- **Node.js directly** — run via `tsx`, `ts-node`, or compile your own code; ensure `tsconfig.json` has `"moduleResolution": "bundler"` (or `"nodenext"`) so TS resolves the `.ts` `exports` entry.
+- **Node.js / oxlint** — works from the npm package exports.
+- **Bun** — works from the npm package exports.
+- **Deno** — use the JSR package.
 
 `effect` is a peer dependency and must be installed alongside `effect-oxlint` at a matching version.
 
