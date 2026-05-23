@@ -10,7 +10,7 @@ All notable changes to this project are documented in this file. The format is b
 
 - Added JSR module documentation metadata to both public entrypoints.
 - Removed JSR slow-type diagnostics by making the `RuleContext` service base and testing context return type explicit.
-- Updated the JSR publish workflow to publish with provenance without `--allow-slow-types`.
+- Updated the JSR publish workflow to pass fast-check and rely on GitHub Actions provenance without `--allow-slow-types`.
 
 ## [0.3.0] — Generated config presets
 
