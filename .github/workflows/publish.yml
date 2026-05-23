@@ -1,13 +1,19 @@
 name: Publish
 
 on:
+    workflow_dispatch:
+        inputs:
+            runner:
+                description: Runner label for manual publish dispatch
+                required: false
+                default: ubuntu-latest
     release:
         types: [published]
 
 jobs:
     publish-npm:
         name: Publish to npm
-        runs-on: ubuntu-latest
+        runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
         permissions:
             contents: read
             id-token: write
@@ -38,7 +44,7 @@ jobs:
 
     publish-jsr:
         name: Publish to JSR
-        runs-on: ubuntu-latest
+        runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
         permissions:
             contents: read
             id-token: write
