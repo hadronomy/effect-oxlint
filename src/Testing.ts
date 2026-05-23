@@ -13,6 +13,7 @@
  * ```
  *
  * @since 0.2.0
+ * @module
  */
 import type {
 	Comment,
@@ -892,13 +893,27 @@ export interface MockContextOptions {
 }
 
 /**
+ * A mock oxlint `Context` paired with its diagnostics collector.
+ *
+ * @since 0.3.1
+ */
+export interface MockContext {
+	/** Mock context passed to oxlint rule `create` functions. */
+	readonly context: OxlintContext;
+	/** Diagnostics reported while a rule runs against the mock context. */
+	readonly diagnostics: Array<ReportedDiagnostic>;
+}
+
+/**
  * Create a mock oxlint `Context` and a diagnostics collector.
  *
  * The mock provides the minimal surface required by `RuleContext.fromOxlintContext`.
  *
  * @since 0.2.0
  */
-export const createMockContext = (opts: MockContextOptions = {}) => {
+export const createMockContext = (
+	opts: MockContextOptions = {}
+): MockContext => {
 	const diagnostics: Array<ReportedDiagnostic> = [];
 	const filename = opts.filename ?? '/test/file.ts';
 	const cwd = opts.cwd ?? '/test';
@@ -1015,7 +1030,7 @@ export const createMockContext = (opts: MockContextOptions = {}) => {
 		parserPath: undefined
 	} as unknown as OxlintContext;
 
-	return { context, diagnostics } as const;
+	return { context, diagnostics };
 };
 
 // ---------------------------------------------------------------------------

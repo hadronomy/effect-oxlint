@@ -23,6 +23,38 @@ import * as Effect from 'effect/Effect';
 // ---------------------------------------------------------------------------
 
 /**
+ * Service shape provided by `RuleContext`.
+ *
+ * @since 0.3.1
+ */
+export interface RuleContextService {
+	/** Report a lint diagnostic for the current file. */
+	readonly report: (diagnostic: OxlintDiagnostic) => Effect.Effect<void>;
+	/** Rule ID in `plugin/rule` form. */
+	readonly id: string;
+	/** Absolute path of the file being linted. */
+	readonly filename: string;
+	/** Current working directory. */
+	readonly cwd: string;
+	/** Raw rule options (JSON values). */
+	readonly options: Readonly<Options>;
+	/** Source code access (tokens, comments, text, scope, etc.). */
+	readonly sourceCode: SourceCode;
+	/** Language / parser options for this file. */
+	readonly languageOptions: Readonly<LanguageOptions>;
+	/** Shared settings from the oxlint config. */
+	readonly settings: Readonly<Settings>;
+}
+
+const RuleContextBase: Context.ServiceClass<
+	RuleContext,
+	'effect-oxlint/RuleContext',
+	RuleContextService
+> = Context.Service<RuleContext, RuleContextService>()(
+	'effect-oxlint/RuleContext'
+);
+
+/**
  * The lint rule context, provided as an Effect service.
  *
  * Available inside `Rule.define`'s `create` generator and every
@@ -30,27 +62,7 @@ import * as Effect from 'effect/Effect';
  *
  * @since 0.1.0
  */
-export class RuleContext extends Context.Service<
-	RuleContext,
-	{
-		/** Report a lint diagnostic for the current file. */
-		readonly report: (diagnostic: OxlintDiagnostic) => Effect.Effect<void>;
-		/** Rule ID in `plugin/rule` form. */
-		readonly id: string;
-		/** Absolute path of the file being linted. */
-		readonly filename: string;
-		/** Current working directory. */
-		readonly cwd: string;
-		/** Raw rule options (JSON values). */
-		readonly options: Readonly<Options>;
-		/** Source code access (tokens, comments, text, scope, etc.). */
-		readonly sourceCode: SourceCode;
-		/** Language / parser options for this file. */
-		readonly languageOptions: Readonly<LanguageOptions>;
-		/** Shared settings from the oxlint config. */
-		readonly settings: Readonly<Settings>;
-	}
->()('effect-oxlint/RuleContext') {}
+export class RuleContext extends RuleContextBase {}
 
 // ---------------------------------------------------------------------------
 // Constructor from raw oxlint Context

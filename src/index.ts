@@ -2,7 +2,7 @@
  * Effect-first library for writing oxlint custom lint rules.
  *
  * @since 0.1.0
- * @packageDocumentation
+ * @module
  */
 
 // ---------------------------------------------------------------------------

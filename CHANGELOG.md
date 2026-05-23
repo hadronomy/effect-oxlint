@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.3.1] — JSR score improvements
+
+### Changed
+
+- Added JSR module documentation metadata to both public entrypoints.
+- Removed JSR slow-type diagnostics by making the `RuleContext` service base and testing context return type explicit.
+- Updated the JSR publish workflow to publish with provenance without `--allow-slow-types`.
+
+## [0.3.0] — Generated config presets
+
 ### Added
 
 - `Plugin.define` now generates `configs.recommended` and `configs.all` objects for `oxlint.config.ts`; generated configs register the plugin through `jsPlugins` and enable fully-qualified rule IDs explicitly.
