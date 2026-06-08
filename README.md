@@ -21,11 +21,11 @@ Write [oxlint](https://oxc.rs/docs/guide/usage/linter) custom lint rules with [E
 ## Install
 
 ```sh
-npm install effect-oxlint effect@4.0.0-beta.70
+npm install effect-oxlint effect@4.0.0-beta.78
 ```
 
 ```sh
-bun add effect-oxlint effect@4.0.0-beta.70
+bun add effect-oxlint effect@4.0.0-beta.78
 ```
 
 ```sh

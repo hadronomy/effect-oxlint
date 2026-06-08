@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.3.2] — Effect 4.0.0-beta.78
+
+### Changed
+
+- Updated `effect` (and `@effect/vitest`) to `4.0.0-beta.78`; the published peer range is now `^4.0.0-beta.78`.
+- Switched the npm publish workflow to OIDC trusted publishing (no `NPM_TOKEN`): Node 24 plus `npm@latest` for npm >= 11.5.1.
+
 ## [0.3.1] — JSR score improvements
 
 ### Changed
