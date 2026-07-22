@@ -47,6 +47,8 @@ const withSourceCode = <A>(
  *
  * @since 0.2.0
  */
+// Keep the callable form for public API compatibility.
+// @effect-diagnostics-next-line lazyEffect:off
 export const getText = (): Effect.Effect<string, never, RuleContext> =>
 	withSourceCode((sc) => sc.getText(null));
 
@@ -245,6 +247,8 @@ export const getTokenByRangeStart = (
  *
  * @since 0.2.0
  */
+// Keep the callable form for public API compatibility.
+// @effect-diagnostics-next-line lazyEffect:off
 export const getAllComments = (): Effect.Effect<
 	ReadonlyArray<Comment>,
 	never,
@@ -372,6 +376,8 @@ export const isSpaceBetween = (
  *
  * @since 0.2.0
  */
+// Keep the callable form for public API compatibility.
+// @effect-diagnostics-next-line lazyEffect:off
 export const getLines = (): Effect.Effect<
 	ReadonlyArray<string>,
 	never,
