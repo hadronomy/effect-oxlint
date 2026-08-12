@@ -34,6 +34,8 @@ export interface RuleContextService {
 	readonly id: string;
 	/** Absolute path of the file being linted. */
 	readonly filename: string;
+	/** Canonical path of the file being linted. */
+	readonly physicalFilename: string;
 	/** Current working directory. */
 	readonly cwd: string;
 	/** Raw rule options (JSON values). */
@@ -78,6 +80,7 @@ export const fromOxlintContext = (ctx: OxlintContext): RuleContext['Service'] =>
 		report: (diagnostic) => Effect.sync(() => ctx.report(diagnostic)),
 		id: ctx.id,
 		filename: ctx.filename,
+		physicalFilename: ctx.physicalFilename,
 		cwd: ctx.cwd,
 		options: ctx.options,
 		sourceCode: ctx.sourceCode,
@@ -105,6 +108,10 @@ export const id: Effect.Effect<string, never, RuleContext> = Effect.service(
  */
 export const filename: Effect.Effect<string, never, RuleContext> =
 	Effect.service(RuleContext).pipe(Effect.map((ctx) => ctx.filename));
+
+/** Effectful access to the canonical physical file path. */
+export const physicalFilename: Effect.Effect<string, never, RuleContext> =
+	Effect.service(RuleContext).pipe(Effect.map((ctx) => ctx.physicalFilename));
 
 /**
  * Effectful access to the working directory.

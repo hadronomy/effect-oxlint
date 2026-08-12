@@ -18,6 +18,9 @@ export * as Comment from './Comment.ts';
 /** Structured diagnostic construction. */
 export * as Diagnostic from './Diagnostic.ts';
 
+/** Dynamic file context for `Rule.defineOnce` handlers. */
+export * as FileContext from './FileContext.ts';
+
 /** Plugin definition and composition. */
 export * as Plugin from './Plugin.ts';
 

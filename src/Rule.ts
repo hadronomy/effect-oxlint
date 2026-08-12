@@ -7,20 +7,38 @@
  *
  * @since 0.1.0
  */
-import type { CreateRule, ESTree, RuleDocs, RuleMeta } from '@oxlint/plugins';
+import type {
+	CreateOnceRule,
+	CreateRule,
+	ESTree,
+	RuleDocs,
+	RuleMeta,
+	Visitor as OxlintVisitor
+} from '@oxlint/plugins';
 import * as Arr from 'effect/Array';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as P from 'effect/Predicate';
+import * as R from 'effect/Record';
 import * as Schema from 'effect/Schema';
+import * as Layer from 'effect/Layer';
 
 import { pipe } from 'effect/Function';
 
 import * as AST from './AST.ts';
 import { make as makeDiagnostic } from './Diagnostic.ts';
+import * as FileContext from './FileContext.ts';
 import { fromOxlintContext, RuleContext } from './RuleContext.ts';
-import type { EffectVisitor, TypedEffectVisitor } from './Visitor.ts';
-import { merge as mergeVisitors, toOxlintVisitor } from './Visitor.ts';
+import type {
+	EffectVisitor,
+	SyncVisitor,
+	TypedEffectVisitor
+} from './Visitor.ts';
+import {
+	compileSync,
+	merge as mergeVisitors,
+	toOxlintVisitor
+} from './Visitor.ts';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -89,6 +107,29 @@ export interface RuleConfig<Options = undefined> {
 	) => Effect.gen.Return<TypedEffectVisitor, never, RuleContext>;
 }
 
+/** Program returned by an Effect-first `createOnce` setup. */
+export interface OnceRuleProgram {
+	readonly before?: Effect.Effect<
+		boolean | void,
+		never,
+		FileContext.FileContext
+	>;
+	readonly after?: Effect.Effect<void, never, FileContext.FileContext>;
+	readonly visitors?: EffectVisitor<FileContext.FileContext>;
+	readonly syncVisitors?: SyncVisitor;
+}
+
+/** Configuration for the Oxlint `createOnce` lifecycle. */
+export interface OnceRuleConfig<Options = undefined, Services = never> {
+	readonly name: string;
+	readonly meta: RuleMeta;
+	readonly options?: Schema.Decoder<Options> | undefined;
+	readonly layer?: Layer.Layer<Services, never, never>;
+	readonly create: (
+		options: Options
+	) => Effect.Effect<OnceRuleProgram, never, Services>;
+}
+
 // ---------------------------------------------------------------------------
 // Builder
 // ---------------------------------------------------------------------------
@@ -147,6 +188,118 @@ export const define = <Options = undefined>(
 
 		// Wrap each handler: Effect<void> → plain () => void
 		return toOxlintVisitor(effectVisitor, run);
+	}
+});
+
+// ---------------------------------------------------------------------------
+// `createOnce` builder
+// ---------------------------------------------------------------------------
+
+const toFileOxlintVisitor = (
+	effectVisitor: EffectVisitor<FileContext.FileContext>,
+	runHandler: (
+		effect: Effect.Effect<void, never, FileContext.FileContext>
+	) => void
+): OxlintVisitor =>
+	R.map(
+		effectVisitor,
+		(handler) => (node: ESTree.Node) => runHandler(handler(node))
+	);
+
+const combineOxlintVisitors = (
+	left: OxlintVisitor,
+	right: OxlintVisitor
+): OxlintVisitor => {
+	const result = {
+		...(left as Record<string, (node: ESTree.Node) => void>)
+	} as Record<string, (node: ESTree.Node) => void>;
+
+	R.toEntries(right as Record<string, (node: ESTree.Node) => void>).forEach(
+		([key, handler]) => {
+			const existing = result[key];
+			result[key] = existing
+				? (node) => {
+						existing(node);
+						handler(node);
+					}
+				: handler;
+		}
+	);
+
+	return result;
+};
+
+/**
+ * Define an Effect-first rule for Oxlint's `createOnce` lifecycle.
+ *
+ * Static setup runs once. File hooks and effectful handlers receive the
+ * dynamic `FileContext` service. Synchronous handlers compile to direct
+ * Oxlint callbacks and do not enter the Effect runtime per AST node.
+ *
+ * @since 0.4.0
+ */
+export const defineOnce = <Options = undefined, Services = never>(
+	config: OnceRuleConfig<Options, Services>
+): CreateOnceRule => ({
+	meta: config.meta,
+	createOnce(oxlintContext) {
+		const controller = FileContext.make(oxlintContext);
+		const decodeOptions = (): Options => {
+			const schema = config.options;
+			if (schema === undefined) return undefined as Options;
+			return Schema.decodeUnknownSync(schema)(oxlintContext.options[0]);
+		};
+		const options = decodeOptions();
+		const setup = config.layer
+			? Effect.provide(config.create(options), config.layer)
+			: config.create(options);
+		const program = Effect.runSync(
+			setup as Effect.Effect<OnceRuleProgram, never, never>
+		);
+		const runFile = <A>(
+			effect: Effect.Effect<A, never, FileContext.FileContext>
+		): A =>
+			Effect.runSync(
+				Effect.provideService(
+					effect,
+					FileContext.FileContext,
+					controller.service
+				)
+			);
+
+		const runHook = <A>(
+			effect: Effect.Effect<A, never, FileContext.FileContext> | undefined
+		): A | undefined =>
+			effect === undefined ? undefined : runFile(effect);
+
+		const effectVisitor = program.visitors
+			? toFileOxlintVisitor(program.visitors, (effect) => {
+					runFile(effect);
+				})
+			: {};
+		const syncVisitor = program.syncVisitors
+			? compileSync(program.syncVisitors, controller.current)
+			: {};
+
+		return {
+			...combineOxlintVisitors(effectVisitor, syncVisitor),
+			before() {
+				controller.activate();
+				try {
+					return runHook(program.before) !== false;
+				} catch (error) {
+					controller.deactivate();
+					throw error;
+				}
+			},
+			after() {
+				try {
+					runHook(program.after);
+				} finally {
+					controller.deactivate();
+				}
+			}
+		};
 	}
 });
 

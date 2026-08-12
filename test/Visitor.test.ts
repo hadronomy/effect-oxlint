@@ -39,6 +39,37 @@ describe('Visitor.onExit', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Visitor.onSync
+// ---------------------------------------------------------------------------
+
+describe('Visitor.onSync', () => {
+	test('creates typed enter and exit clauses', () => {
+		const enter = Visitor.onSync('ImportDeclaration', (node, file) => {
+			expect(node.type).toBe('ImportDeclaration');
+			expect(file.physicalFilename).toBe('/project/file.ts');
+		});
+		const exit = Visitor.onExitSync('ImportDeclaration', (node) => {
+			expect(node.type).toBe('ImportDeclaration');
+		});
+
+		expect(enter.entries[0]?.key).toBe('ImportDeclaration');
+		expect(exit.entries[0]?.key).toBe('ImportDeclaration:exit');
+	});
+
+	test('merges synchronous clauses in declaration order', () => {
+		const merged = Visitor.merge(
+			Visitor.onSync('CallExpression', () => undefined),
+			Visitor.onSync('CallExpression', () => undefined)
+		);
+
+		expect(merged._tag).toBe('SyncVisitor');
+		if (merged._tag === 'SyncVisitor') {
+			expect(merged.entries).toHaveLength(2);
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Visitor.merge
 // ---------------------------------------------------------------------------
 

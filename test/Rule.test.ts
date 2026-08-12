@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@effect/vitest';
+import { describe, expect, it, test } from '@effect/vitest';
 import * as Arr from 'effect/Array';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
@@ -7,6 +7,7 @@ import * as Schema from 'effect/Schema';
 
 import { make as makeDiagnostic } from '../src/Diagnostic.ts';
 import * as Rule from '../src/Rule.ts';
+import * as FileContext from '../src/FileContext.ts';
 import { RuleContext } from '../src/RuleContext.ts';
 import * as Visitor from '../src/Visitor.ts';
 import * as Testing from '../src/Testing.ts';
@@ -74,6 +75,93 @@ describe('Rule.define', () => {
 		expect(rule.meta?.docs?.description).toBe('Test rule');
 		expect(rule.create).toBeDefined();
 	});
+});
+
+// ---------------------------------------------------------------------------
+// Rule.defineOnce
+// ---------------------------------------------------------------------------
+
+describe('Rule.defineOnce', () => {
+	test('runs setup once and direct handlers without an Effect bridge', () => {
+		let setupCalls = 0;
+		let visits = 0;
+		const rule = Rule.defineOnce({
+			name: 'once-rule',
+			meta: Rule.meta({ type: 'suggestion', description: 'Once rule' }),
+			create: () => {
+				setupCalls += 1;
+				return Effect.succeed({
+					visitors: {},
+					syncVisitors: Visitor.onSync(
+						'ImportDeclaration',
+						(_node, file) => {
+							visits += file.filename.length > 0 ? 1 : 0;
+						}
+					)
+				});
+			}
+		});
+		const { context } = Testing.createMockContext({
+			filename: '/project/src/file.ts'
+		});
+		const visitor = rule.createOnce(context);
+
+		visitor.before?.();
+		visitor.ImportDeclaration?.(Testing.importDecl('effect'));
+		visitor.after?.();
+
+		expect(setupCalls).toBe(1);
+		expect(visits).toBe(1);
+	});
+
+	it.effect('provides FileContext to effectful once handlers', () =>
+		Effect.gen(function* () {
+			const { context } = Testing.createMockContext({
+				filename: '/project/src/file.ts'
+			});
+			const rule = Rule.defineOnce({
+				name: 'effect-once-rule',
+				meta: Rule.meta({
+					type: 'suggestion',
+					description: 'Effect once rule'
+				}),
+				create: () =>
+					Effect.succeed({
+						syncVisitors: Visitor.merge(
+							Visitor.onSync(
+								'ImportDeclaration',
+								(_node, file) => {
+									expect(file.physicalFilename).toBe(
+										'/project/src/file.ts'
+									);
+								}
+							)
+						),
+						visitors: {
+							ImportDeclaration: () =>
+								Effect.service(FileContext.FileContext).pipe(
+									Effect.flatMap((file) =>
+										file.report(
+											makeDiagnostic({
+												node: Testing.importDecl(
+													'effect'
+												),
+												message: file.physicalFilename
+											})
+										)
+									)
+								)
+						}
+					})
+			});
+
+			const visitor = rule.createOnce(context);
+			visitor.before?.();
+			visitor.ImportDeclaration?.(Testing.importDecl('effect'));
+			visitor.after?.();
+			yield* Effect.void;
+		})
+	);
 });
 
 // ---------------------------------------------------------------------------
