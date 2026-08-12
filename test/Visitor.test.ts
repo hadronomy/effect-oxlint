@@ -4,6 +4,7 @@ import * as Option from 'effect/Option';
 import * as R from 'effect/Record';
 import * as Ref from 'effect/Ref';
 
+import * as FileContext from '../src/FileContext.ts';
 import * as Visitor from '../src/Visitor.ts';
 import * as Testing from '../src/Testing.ts';
 
@@ -35,6 +36,63 @@ describe('Visitor.onExit', () => {
 		const visitor = Visitor.onExit('CallExpression', () => Effect.void);
 		expect(visitor['CallExpression:exit']).toBeDefined();
 		expect(visitor['CallExpression']).toBeUndefined();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Visitor.onSync
+// ---------------------------------------------------------------------------
+
+describe('Visitor.onSync', () => {
+	test('creates typed enter and exit clauses', () => {
+		const enter = Visitor.onSync('ImportDeclaration', (node, file) => {
+			expect(node.type).toBe('ImportDeclaration');
+			expect(file.physicalFilename).toBe('/project/file.ts');
+		});
+		const exit = Visitor.onExitSync('ImportDeclaration', (node) => {
+			expect(node.type).toBe('ImportDeclaration');
+		});
+
+		expect(enter.entries[0]?.key).toBe('ImportDeclaration');
+		expect(exit.entries[0]?.key).toBe('ImportDeclaration:exit');
+	});
+
+	test('merges synchronous clauses in declaration order', () => {
+		const merged = Visitor.merge(
+			Visitor.onSync('CallExpression', () => undefined),
+			Visitor.onSync('CallExpression', () => undefined)
+		);
+
+		expect(merged._tag).toBe('SyncVisitor');
+		if (merged._tag === 'SyncVisitor') {
+			expect(merged.entries).toHaveLength(2);
+		}
+	});
+
+	test('compiles one callback per event and reads the file once per node', () => {
+		const { context } = Testing.createMockContext({
+			filename: '/project/file.ts'
+		});
+		const controller = FileContext.make(context);
+		controller.activate();
+		let currentCalls = 0;
+		let visits = 0;
+		const compiled = Visitor.compileSync(
+			Visitor.onSync('ImportDeclaration', (_node, file) => {
+				visits += file.filename.length > 0 ? 1 : 0;
+			}),
+			() => {
+				currentCalls += 1;
+				return controller.service;
+			}
+		);
+
+		compiled.ImportDeclaration?.(Testing.importDecl('effect'));
+		compiled.ImportDeclaration?.(Testing.importDecl('effect'));
+
+		expect(currentCalls).toBe(2);
+		expect(visits).toBe(2);
+		controller.deactivate();
 	});
 });
 

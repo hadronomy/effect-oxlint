@@ -15,6 +15,7 @@ import * as R from 'effect/Record';
 import * as Ref from 'effect/Ref';
 
 import { RuleContext } from './RuleContext.ts';
+import type { FileContextService } from './FileContext.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,9 +55,9 @@ import { RuleContext } from './RuleContext.ts';
  *
  * @since 0.1.0
  */
-export type EffectHandler<N = ESTree.Node> = (
+export type EffectHandler<N = ESTree.Node, R = RuleContext> = (
 	node: N
-) => Effect.Effect<void, never, RuleContext>;
+) => Effect.Effect<void, never, R>;
 
 /**
  * A map from AST node type names (and `"NodeType:exit"` variants) to
@@ -66,8 +67,8 @@ export type EffectHandler<N = ESTree.Node> = (
  *
  * @since 0.1.0
  */
-export type EffectVisitor = {
-	readonly [key: string]: EffectHandler;
+export type EffectVisitor<R = RuleContext> = {
+	readonly [key: string]: EffectHandler<ESTree.Node, R>;
 };
 
 /** @internal Extract the node parameter type from an oxlint visitor handler. */
@@ -106,6 +107,60 @@ export type TypedEffectVisitor = {
 };
 
 // ---------------------------------------------------------------------------
+// Synchronous visitor path
+// ---------------------------------------------------------------------------
+
+/** Visitor keys accepted by the direct synchronous compiler. */
+export type SyncVisitorKey =
+	| ESTree.Node['type']
+	| `${ESTree.Node['type']}:exit`;
+
+type SyncBaseKey<K extends SyncVisitorKey> = K extends `${infer Base}:exit`
+	? Base
+	: K;
+
+/** Node type selected by a synchronous visitor key. */
+export type SyncVisitorNode<K extends SyncVisitorKey> = Extract<
+	ESTree.Node,
+	{ readonly type: SyncBaseKey<K> }
+>;
+
+export type SyncVisitorHandler<K extends SyncVisitorKey> = (
+	node: SyncVisitorNode<K>,
+	file: FileContextService
+) => void;
+
+interface SyncVisitorEntry<K extends SyncVisitorKey = SyncVisitorKey> {
+	readonly key: K;
+	readonly handler: SyncVisitorHandler<K>;
+}
+
+export interface SyncVisitor {
+	readonly _tag: 'SyncVisitor';
+	readonly entries: ReadonlyArray<SyncVisitorEntry>;
+}
+
+/** Create a synchronous visitor clause. */
+export const onSync = <K extends SyncVisitorKey>(
+	key: K,
+	handler: SyncVisitorHandler<K>
+): SyncVisitor => ({
+	_tag: 'SyncVisitor',
+	entries: [
+		{
+			key,
+			handler: handler as unknown as SyncVisitorHandler<SyncVisitorKey>
+		}
+	]
+});
+
+/** Create a synchronous visitor clause for an exit event. */
+export const onExitSync = <K extends ESTree.Node['type']>(
+	key: K,
+	handler: SyncVisitorHandler<`${K}:exit`>
+): SyncVisitor => onSync(`${key}:exit`, handler);
+
+// ---------------------------------------------------------------------------
 // Constructors
 // ---------------------------------------------------------------------------
 
@@ -131,6 +186,14 @@ export const on = <K extends string>(
 	handler: EffectHandler<VisitorNodeType<K>>
 ): EffectVisitor => ({ [nodeType]: handler as EffectHandler });
 
+/** Create an effectful visitor clause for a `Rule.defineOnce` file context. */
+export const onEffect = <K extends SyncVisitorKey>(
+	nodeType: K,
+	handler: EffectHandler<SyncVisitorNode<K>, FileContextService>
+): EffectVisitor<FileContextService> => ({
+	[nodeType]: handler as EffectHandler<ESTree.Node, FileContextService>
+});
+
 /**
  * Create a single-entry visitor for the exit phase of a node type.
  *
@@ -155,19 +218,60 @@ const sequenceHandlers =
 		Effect.andThen(left(node), right(node));
 
 /**
- * Merge multiple visitors into one.
+ * Merge multiple effectful visitors into one.
  *
  * When two visitors handle the same node type, both handlers run
  * sequentially (left to right).
  *
  * @since 0.1.0
  */
-export const merge = (
+const mergeEffectVisitors = (
 	...visitors: ReadonlyArray<EffectVisitor>
 ): EffectVisitor =>
 	Arr.reduce(visitors, emptyVisitor, (acc, visitor) =>
 		R.union(acc, visitor, (left, right) => sequenceHandlers(left, right))
 	);
+
+/**
+ * Merge synchronous visitors into one flat clause list.
+ *
+ * Synchronous visitors retain declaration order. The compiler combines
+ * handlers for one host key into one callback at the runtime boundary.
+ *
+ * @since 0.4.0
+ */
+export const mergeSync = (
+	...visitors: ReadonlyArray<SyncVisitor>
+): SyncVisitor => {
+	const entries: Array<SyncVisitorEntry> = [];
+
+	for (const visitor of visitors) {
+		for (const entry of visitor.entries) {
+			entries.push(entry);
+		}
+	}
+
+	return { _tag: 'SyncVisitor', entries };
+};
+
+/** Merge effectful or synchronous visitors with a typed overload. */
+export function merge(...visitors: ReadonlyArray<EffectVisitor>): EffectVisitor;
+export function merge(...visitors: ReadonlyArray<SyncVisitor>): SyncVisitor;
+export function merge(
+	...visitors: ReadonlyArray<EffectVisitor | SyncVisitor>
+): EffectVisitor | SyncVisitor {
+	if (
+		visitors.length > 0 &&
+		visitors.every(
+			(visitor): visitor is SyncVisitor =>
+				'_tag' in visitor && visitor._tag === 'SyncVisitor'
+		)
+	) {
+		return mergeSync(...visitors);
+	}
+
+	return mergeEffectVisitors(...(visitors as ReadonlyArray<EffectVisitor>));
+}
 
 /**
  * Create an enter/exit visitor pair that increments a `Ref<number>` on
@@ -311,3 +415,56 @@ export const toOxlintVisitor = (
 		effectVisitor,
 		(handler) => (node: ESTree.Node) => runHandler(handler(node))
 	);
+
+/**
+ * Compile synchronous visitor clauses into direct oxlint callbacks.
+ *
+ * The returned callbacks read one active file service and call the handlers
+ * directly. They do not construct or run an Effect.
+ *
+ * @internal
+ */
+export const compileSync = (
+	visitor: SyncVisitor,
+	currentFile: () => FileContextService
+): OxlintVisitor => {
+	const handlers = new Map<
+		string,
+		Array<(node: ESTree.Node, file: FileContextService) => void>
+	>();
+
+	visitor.entries.forEach((entry) => {
+		const existing = handlers.get(entry.key);
+		const handler = entry.handler as (
+			node: ESTree.Node,
+			file: FileContextService
+		) => void;
+
+		if (existing === undefined) {
+			handlers.set(entry.key, [handler]);
+		} else {
+			existing.push(handler);
+		}
+	});
+
+	const result: Record<string, (node: ESTree.Node) => void> = {};
+
+	handlers.forEach((eventHandlers, key) => {
+		if (eventHandlers.length === 1) {
+			const handler = eventHandlers[0];
+			if (handler === undefined) return;
+			result[key] = (node) => handler(node, currentFile());
+			return;
+		}
+
+		result[key] = (node) => {
+			const file = currentFile();
+			for (let index = 0; index < eventHandlers.length; index += 1) {
+				const handler = eventHandlers[index];
+				if (handler !== undefined) handler(node, file);
+			}
+		};
+	});
+
+	return result;
+};

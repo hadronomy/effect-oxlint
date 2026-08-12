@@ -410,6 +410,8 @@ bunx vitest run -t "reports for matching"
 
 The npm package publishes built ESM JavaScript and declaration files under `dist/`, so Node-based tools such as oxlint can load plugins from `node_modules` without TypeScript source loading or type stripping. The JSR package continues to publish the TypeScript source entrypoints.
 
+> **Git dependency warning:** MZE consumes this fork from a Git commit. Bun does not run this package's `prepare` script for that Git dependency, so the committed `dist/` directory is required by Git consumers. After you change `src/`, run `bun run check:artifacts` and commit the matching `dist/` changes. Do not edit `dist/` by hand.
+
 Supported consumers:
 
 - **Node.js / oxlint** — works from the npm package exports.
