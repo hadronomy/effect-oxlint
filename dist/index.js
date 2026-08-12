@@ -869,7 +869,8 @@ const defineOnce = (config) => ({
 		const options = decodeOptions();
 		const setup = config.layer ? Effect.provide(config.create(options), config.layer) : config.create(options);
 		const program = Effect.runSync(setup);
-		const runFile = (effect) => Effect.runSync(Effect.provideService(effect, FileContext, controller.service));
+		const fileContext = Context.make(FileContext, controller.service);
+		const runFile = Effect.runSyncWith(fileContext);
 		const runHook = (effect) => effect === void 0 ? void 0 : runFile(effect);
 		return {
 			...combineOxlintVisitors(program.visitors ? toFileOxlintVisitor(program.visitors, (effect) => {
