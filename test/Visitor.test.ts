@@ -4,6 +4,7 @@ import * as Option from 'effect/Option';
 import * as R from 'effect/Record';
 import * as Ref from 'effect/Ref';
 
+import * as FileContext from '../src/FileContext.ts';
 import * as Visitor from '../src/Visitor.ts';
 import * as Testing from '../src/Testing.ts';
 
@@ -66,6 +67,32 @@ describe('Visitor.onSync', () => {
 		if (merged._tag === 'SyncVisitor') {
 			expect(merged.entries).toHaveLength(2);
 		}
+	});
+
+	test('compiles one callback per event and reads the file once per node', () => {
+		const { context } = Testing.createMockContext({
+			filename: '/project/file.ts'
+		});
+		const controller = FileContext.make(context);
+		controller.activate();
+		let currentCalls = 0;
+		let visits = 0;
+		const compiled = Visitor.compileSync(
+			Visitor.onSync('ImportDeclaration', (_node, file) => {
+				visits += file.filename.length > 0 ? 1 : 0;
+			}),
+			() => {
+				currentCalls += 1;
+				return controller.service;
+			}
+		);
+
+		compiled.ImportDeclaration?.(Testing.importDecl('effect'));
+		compiled.ImportDeclaration?.(Testing.importDecl('effect'));
+
+		expect(currentCalls).toBe(2);
+		expect(visits).toBe(2);
+		controller.deactivate();
 	});
 });
 

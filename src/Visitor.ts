@@ -242,10 +242,17 @@ const mergeEffectVisitors = (
  */
 export const mergeSync = (
 	...visitors: ReadonlyArray<SyncVisitor>
-): SyncVisitor => ({
-	_tag: 'SyncVisitor',
-	entries: Arr.flatMap(visitors, (visitor) => visitor.entries)
-});
+): SyncVisitor => {
+	const entries: Array<SyncVisitorEntry> = [];
+
+	for (const visitor of visitors) {
+		for (const entry of visitor.entries) {
+			entries.push(entry);
+		}
+	}
+
+	return { _tag: 'SyncVisitor', entries };
+};
 
 /** Merge effectful or synchronous visitors with a typed overload. */
 export function merge(...visitors: ReadonlyArray<EffectVisitor>): EffectVisitor;
@@ -443,9 +450,19 @@ export const compileSync = (
 	const result: Record<string, (node: ESTree.Node) => void> = {};
 
 	handlers.forEach((eventHandlers, key) => {
+		if (eventHandlers.length === 1) {
+			const handler = eventHandlers[0];
+			if (handler === undefined) return;
+			result[key] = (node) => handler(node, currentFile());
+			return;
+		}
+
 		result[key] = (node) => {
 			const file = currentFile();
-			eventHandlers.forEach((handler) => handler(node, file));
+			for (let index = 0; index < eventHandlers.length; index += 1) {
+				const handler = eventHandlers[index];
+				if (handler !== undefined) handler(node, file);
+			}
 		};
 	});
 
