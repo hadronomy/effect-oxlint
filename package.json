@@ -47,6 +47,7 @@
   "scripts": {
     "build": "tsdown",
     "check": "bunx --bun vp check --fix",
+    "check:artifacts": "bun run build && git diff --exit-code -- dist",
     "test": "vitest run",
     "typecheck": "tsgo",
     "prepare": "bun run build",
