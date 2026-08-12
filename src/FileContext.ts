@@ -35,7 +35,10 @@ export interface FileContextService {
 	readonly sourceCode: SourceCode;
 	readonly languageOptions: Readonly<LanguageOptions>;
 	readonly settings: Readonly<Settings>;
-	readonly report: (diagnostic: Diagnostic) => Effect.Effect<void>;
+	/** Report a diagnostic from a synchronous visitor without entering Effect. */
+	readonly report: (diagnostic: Diagnostic) => void;
+	/** Report a diagnostic from an Effect handler. */
+	readonly reportEffect: (diagnostic: Diagnostic) => Effect.Effect<void>;
 }
 
 const FileContextBase: Context.ServiceClass<
@@ -91,7 +94,11 @@ export const make = (context: OxlintContext): FileContextController => {
 			if (!active) throw new FileContextUnavailable();
 			return context.settings;
 		},
-		report: (diagnostic) =>
+		report: (diagnostic) => {
+			if (!active) throw new FileContextClosed();
+			context.report(diagnostic);
+		},
+		reportEffect: (diagnostic) =>
 			Effect.sync(() => {
 				if (!active) throw new FileContextClosed();
 				context.report(diagnostic);

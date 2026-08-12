@@ -141,7 +141,7 @@ describe('Rule.defineOnce', () => {
 							ImportDeclaration: () =>
 								Effect.service(FileContext.FileContext).pipe(
 									Effect.flatMap((file) =>
-										file.report(
+										file.reportEffect(
 											makeDiagnostic({
 												node: Testing.importDecl(
 													'effect'
