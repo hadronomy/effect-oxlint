@@ -164,6 +164,29 @@ describe('Rule.defineOnce', () => {
 	);
 });
 
+describe('Rule.plan', () => {
+	test('compiles a declarative plan to a createOnce rule', () => {
+		const rule = Rule.compile(
+			Rule.plan({
+				name: 'planned-rule',
+				meta: Rule.meta({
+					type: 'suggestion',
+					description: 'Planned rule'
+				}),
+				create: () =>
+					Effect.succeed({
+						syncVisitors: Visitor.onSync(
+							'ImportDeclaration',
+							() => undefined
+						)
+					})
+			})
+		);
+
+		expect(rule.createOnce).toBeDefined();
+	});
+});
+
 // ---------------------------------------------------------------------------
 // Rule.banStatement
 // ---------------------------------------------------------------------------

@@ -131,6 +131,20 @@ export interface OnceRuleConfig<Options = undefined, Services = never> {
 	) => Effect.Effect<OnceRuleProgram, never, Services>;
 }
 
+/** A declarative rule definition waiting for the Oxlint compiler. */
+export interface OnceRulePlan<Options = undefined, Services = never> {
+	readonly _tag: 'OnceRulePlan';
+	readonly config: OnceRuleConfig<Options, Services>;
+}
+
+/** Describe a `createOnce` rule before lowering it to Oxlint callbacks. */
+export const plan = <Options = undefined, Services = never>(
+	config: OnceRuleConfig<Options, Services>
+): OnceRulePlan<Options, Services> => ({
+	_tag: 'OnceRulePlan',
+	config
+});
+
 // ---------------------------------------------------------------------------
 // Builder
 // ---------------------------------------------------------------------------
@@ -298,6 +312,11 @@ export const defineOnce = <Options = undefined, Services = never>(
 		};
 	}
 });
+
+/** Compile a declarative rule plan at the Oxlint host boundary. */
+export const compile = <Options = undefined, Services = never>(
+	rulePlan: OnceRulePlan<Options, Services>
+): CreateOnceRule => defineOnce(rulePlan.config);
 
 // ---------------------------------------------------------------------------
 // Metadata helper
