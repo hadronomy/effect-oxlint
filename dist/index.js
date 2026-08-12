@@ -788,9 +788,11 @@ var Rule_exports = /* @__PURE__ */ __exportAll({
 	banMultiple: () => banMultiple,
 	banNewExpr: () => banNewExpr,
 	banStatement: () => banStatement,
+	compile: () => compile,
 	define: () => define,
 	defineOnce: () => defineOnce,
-	meta: () => meta
+	meta: () => meta,
+	plan: () => plan
 });
 /**
 * Convert a PascalCase / camelCase / acronym string to kebab-case for use
@@ -813,6 +815,11 @@ const kebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/([A-Z]+)(
 * @internal
 */
 const kebabList = (parts) => Arr.join(Arr.map(parts, kebab), "-");
+/** Describe a `createOnce` rule before lowering it to Oxlint callbacks. */
+const plan = (config) => ({
+	_tag: "OnceRulePlan",
+	config
+});
 /**
 * Define an Effect-first oxlint lint rule.
 *
@@ -908,6 +915,8 @@ const defineOnce = (config) => ({
 		};
 	}
 });
+/** Compile a declarative rule plan at the Oxlint host boundary. */
+const compile = (rulePlan) => defineOnce(rulePlan.config);
 /**
 * Build `RuleMeta` with sensible defaults.
 *

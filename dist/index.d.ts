@@ -740,7 +740,7 @@ declare const toOxlintVisitor: (effectVisitor: EffectVisitor, runHandler: (effec
  */
 declare const compileSync: (visitor: SyncVisitor, currentFile: () => FileContextService) => Visitor;
 declare namespace Rule_d_exports {
-  export { BanMultipleSpec, OnceRuleConfig, OnceRuleProgram, RuleConfig, banCallOf, banCallOfMember, banImport, banMember, banMultiple, banNewExpr, banStatement, define, defineOnce, meta };
+  export { BanMultipleSpec, OnceRuleConfig, OnceRulePlan, OnceRuleProgram, RuleConfig, banCallOf, banCallOfMember, banImport, banMember, banMultiple, banNewExpr, banStatement, compile, define, defineOnce, meta, plan };
 }
 /**
  * Configuration object for `Rule.define`.
@@ -785,6 +785,13 @@ interface OnceRuleConfig<Options = undefined, Services = never> {
   readonly layer?: Layer.Layer<Services, never, never>;
   readonly create: (options: Options) => Effect.Effect<OnceRuleProgram, never, Services>;
 }
+/** A declarative rule definition waiting for the Oxlint compiler. */
+interface OnceRulePlan<Options = undefined, Services = never> {
+  readonly _tag: 'OnceRulePlan';
+  readonly config: OnceRuleConfig<Options, Services>;
+}
+/** Describe a `createOnce` rule before lowering it to Oxlint callbacks. */
+declare const plan: <Options = undefined, Services = never>(config: OnceRuleConfig<Options, Services>) => OnceRulePlan<Options, Services>;
 /**
  * Define an Effect-first oxlint lint rule.
  *
@@ -818,6 +825,8 @@ declare const define: <Options = undefined>(config: RuleConfig<Options>) => Crea
  * @since 0.4.0
  */
 declare const defineOnce: <Options = undefined, Services = never>(config: OnceRuleConfig<Options, Services>) => CreateOnceRule$1;
+/** Compile a declarative rule plan at the Oxlint host boundary. */
+declare const compile: <Options = undefined, Services = never>(rulePlan: OnceRulePlan<Options, Services>) => CreateOnceRule$1;
 /**
  * Build `RuleMeta` with sensible defaults.
  *
