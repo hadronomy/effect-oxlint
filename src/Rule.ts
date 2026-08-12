@@ -296,7 +296,9 @@ export const defineOnce = <Options = undefined, Services = never>(
 			before() {
 				controller.activate();
 				try {
-					return runHook(program.before) !== false;
+					const proceed = runHook(program.before) !== false;
+					if (!proceed) controller.deactivate();
+					return proceed;
 				} catch (error) {
 					controller.deactivate();
 					throw error;
