@@ -16,6 +16,7 @@ import type {
 	Visitor as OxlintVisitor
 } from '@oxlint/plugins';
 import * as Arr from 'effect/Array';
+import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as P from 'effect/Predicate';
@@ -256,16 +257,11 @@ export const defineOnce = <Options = undefined, Services = never>(
 		const program = Effect.runSync(
 			setup as Effect.Effect<OnceRuleProgram, never, never>
 		);
-		const runFile = <A>(
-			effect: Effect.Effect<A, never, FileContext.FileContext>
-		): A =>
-			Effect.runSync(
-				Effect.provideService(
-					effect,
-					FileContext.FileContext,
-					controller.service
-				)
-			);
+		const fileContext = Context.make(
+			FileContext.FileContext,
+			controller.service
+		);
+		const runFile = Effect.runSyncWith(fileContext);
 
 		const runHook = <A>(
 			effect: Effect.Effect<A, never, FileContext.FileContext> | undefined
