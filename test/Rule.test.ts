@@ -116,7 +116,7 @@ describe('Rule.defineOnce', () => {
 
 	it.effect('provides FileContext to effectful once handlers', () =>
 		Effect.gen(function* () {
-			const { context } = Testing.createMockContext({
+			const { context, diagnostics } = Testing.createMockContext({
 				filename: '/project/src/file.ts'
 			});
 			const rule = Rule.defineOnce({
@@ -127,6 +127,12 @@ describe('Rule.defineOnce', () => {
 				}),
 				create: () =>
 					Effect.succeed({
+						before: Effect.gen(function* () {
+							const file = yield* FileContext.FileContext;
+							expect(file.physicalFilename).toBe(
+								'/project/src/file.ts'
+							);
+						}),
 						syncVisitors: Visitor.merge(
 							Visitor.onSync(
 								'ImportDeclaration',
@@ -137,21 +143,19 @@ describe('Rule.defineOnce', () => {
 								}
 							)
 						),
-						visitors: {
-							ImportDeclaration: () =>
-								Effect.service(FileContext.FileContext).pipe(
-									Effect.flatMap((file) =>
-										file.reportEffect(
-											makeDiagnostic({
-												node: Testing.importDecl(
-													'effect'
-												),
-												message: file.physicalFilename
-											})
-										)
-									)
-								)
-						}
+						visitors: Visitor.onEffect(
+							'ImportDeclaration',
+							(node) =>
+								Effect.gen(function* () {
+									const file = yield* FileContext.FileContext;
+									yield* file.reportEffect(
+										makeDiagnostic({
+											node,
+											message: file.physicalFilename
+										})
+									);
+								})
+						)
 					})
 			});
 
@@ -159,6 +163,39 @@ describe('Rule.defineOnce', () => {
 			visitor.before?.();
 			visitor.ImportDeclaration?.(Testing.importDecl('effect'));
 			visitor.after?.();
+			expect(diagnostics).toHaveLength(1);
+			expect(diagnostics[0]?.diagnostic.message).toBe(
+				'/project/src/file.ts'
+			);
+			yield* Effect.void;
+		})
+	);
+
+	it.effect('deactivates FileContext when before skips a file', () =>
+		Effect.gen(function* () {
+			const { context } = Testing.createMockContext();
+			let readPhysicalFilename = (): string => '';
+			const rule = Rule.defineOnce({
+				name: 'skip-file-rule',
+				meta: Rule.meta({
+					type: 'suggestion',
+					description: 'Skip file'
+				}),
+				create: () =>
+					Effect.succeed({
+						before: Effect.gen(function* () {
+							const file = yield* FileContext.FileContext;
+							readPhysicalFilename = () => file.physicalFilename;
+							return false;
+						})
+					})
+			});
+
+			const visitor = rule.createOnce(context);
+			expect(visitor.before?.()).toBe(false);
+			expect(readPhysicalFilename).toThrow(
+				FileContext.FileContextUnavailable
+			);
 			yield* Effect.void;
 		})
 	);

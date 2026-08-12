@@ -14,8 +14,8 @@ import * as Option from 'effect/Option';
 import * as R from 'effect/Record';
 import * as Ref from 'effect/Ref';
 
+import * as FileContext from './FileContext.ts';
 import { RuleContext } from './RuleContext.ts';
-import type { FileContextService } from './FileContext.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -127,7 +127,7 @@ export type SyncVisitorNode<K extends SyncVisitorKey> = Extract<
 
 export type SyncVisitorHandler<K extends SyncVisitorKey> = (
 	node: SyncVisitorNode<K>,
-	file: FileContextService
+	file: FileContext.FileContextService
 ) => void;
 
 interface SyncVisitorEntry<K extends SyncVisitorKey = SyncVisitorKey> {
@@ -189,9 +189,9 @@ export const on = <K extends string>(
 /** Create an effectful visitor clause for a `Rule.defineOnce` file context. */
 export const onEffect = <K extends SyncVisitorKey>(
 	nodeType: K,
-	handler: EffectHandler<SyncVisitorNode<K>, FileContextService>
-): EffectVisitor<FileContextService> => ({
-	[nodeType]: handler as EffectHandler<ESTree.Node, FileContextService>
+	handler: EffectHandler<SyncVisitorNode<K>, FileContext.FileContext>
+): EffectVisitor<FileContext.FileContext> => ({
+	[nodeType]: handler as EffectHandler<ESTree.Node, FileContext.FileContext>
 });
 
 /**
@@ -426,18 +426,18 @@ export const toOxlintVisitor = (
  */
 export const compileSync = (
 	visitor: SyncVisitor,
-	currentFile: () => FileContextService
+	currentFile: () => FileContext.FileContextService
 ): OxlintVisitor => {
 	const handlers = new Map<
 		string,
-		Array<(node: ESTree.Node, file: FileContextService) => void>
+		Array<(node: ESTree.Node, file: FileContext.FileContextService) => void>
 	>();
 
 	visitor.entries.forEach((entry) => {
 		const existing = handlers.get(entry.key);
 		const handler = entry.handler as (
 			node: ESTree.Node,
-			file: FileContextService
+			file: FileContext.FileContextService
 		) => void;
 
 		if (existing === undefined) {

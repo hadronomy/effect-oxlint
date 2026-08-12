@@ -636,7 +636,7 @@ declare const onExitSync: <K extends ESTree$1.Node["type"]>(key: K, handler: Syn
  */
 declare const on: <K extends string>(nodeType: K, handler: EffectHandler<VisitorNodeType<K>>) => EffectVisitor;
 /** Create an effectful visitor clause for a `Rule.defineOnce` file context. */
-declare const onEffect: <K extends SyncVisitorKey>(nodeType: K, handler: EffectHandler<SyncVisitorNode<K>, FileContextService>) => EffectVisitor<FileContextService>;
+declare const onEffect: <K extends SyncVisitorKey>(nodeType: K, handler: EffectHandler<SyncVisitorNode<K>, FileContext>) => EffectVisitor<FileContext>;
 /**
  * Create a single-entry visitor for the exit phase of a node type.
  *
