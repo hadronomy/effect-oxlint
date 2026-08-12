@@ -651,10 +651,14 @@ const mergeEffectVisitors = (...visitors) => Arr.reduce(visitors, emptyVisitor, 
 *
 * @since 0.4.0
 */
-const mergeSync = (...visitors) => ({
-	_tag: "SyncVisitor",
-	entries: Arr.flatMap(visitors, (visitor) => visitor.entries)
-});
+const mergeSync = (...visitors) => {
+	const entries = [];
+	for (const visitor of visitors) for (const entry of visitor.entries) entries.push(entry);
+	return {
+		_tag: "SyncVisitor",
+		entries
+	};
+};
 function merge(...visitors) {
 	if (visitors.length > 0 && visitors.every((visitor) => "_tag" in visitor && visitor._tag === "SyncVisitor")) return mergeSync(...visitors);
 	return mergeEffectVisitors(...visitors);
@@ -758,9 +762,18 @@ const compileSync = (visitor, currentFile) => {
 	});
 	const result = {};
 	handlers.forEach((eventHandlers, key) => {
+		if (eventHandlers.length === 1) {
+			const handler = eventHandlers[0];
+			if (handler === void 0) return;
+			result[key] = (node) => handler(node, currentFile());
+			return;
+		}
 		result[key] = (node) => {
 			const file = currentFile();
-			eventHandlers.forEach((handler) => handler(node, file));
+			for (let index = 0; index < eventHandlers.length; index += 1) {
+				const handler = eventHandlers[index];
+				if (handler !== void 0) handler(node, file);
+			}
 		};
 	});
 	return result;
